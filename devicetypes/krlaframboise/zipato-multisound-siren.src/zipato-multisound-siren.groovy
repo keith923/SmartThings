@@ -1,5 +1,5 @@
 /**
- *  Zipato Multisound Siren v1.5.7
+ *  Zipato Multisound Siren v1.6.1
  *     (Zipato Z-Wave Indoor Multi-Sound Siren -
  *        Model:PH-PSE02)
  *  
@@ -14,8 +14,12 @@
  *
  *  Changelog:
  *
- *  1.5.7 (07/21/2017)
- *    	- Changed the way it handles secure commands.
+ *  1.6.1 (07/23/2017)
+ *    	- Added legacy fingerprint support for security cc check.
+ *
+ *  1.6 (07/22/2017)
+ *    	- Fixed issue caused by the hub firmware update 000.018.00018
+ *    	- If you're on hub v1 or you installed the device prior to May 2016, make sure you test the device after updating to this version.
  *
  *  1.5.6 (04/23/2017)
  *    	- SmartThings broke parse method response handling so switched to sendhubaction.
@@ -600,14 +604,13 @@ private playSound(soundNumber) {
 def parse(String description) {	
 	def result = []
 	def cmd = zwave.parse(description, commandClassVersions)
-	
 	if (cmd) {
 		result += zwaveEvent(cmd)		
 	}
 	else {
-		logDebug "Unknown Description: $description"
-	}	
-	
+		log.warn "Unable to parse: $description"
+	}
+		
 	if (!isDuplicateCommand(state.lastCheckinTime, 60000)) {
 		result << createLastCheckinEvent()
 	}
@@ -914,32 +917,13 @@ private configGetCmd(paramNumber) {
 }
 
 private secureCmd(cmd) {
-	if (canSecureCmd(cmd)) {	
+	if (zwaveInfo?.zw?.contains("s") || ("0x98" in device.rawDescription?.split(" "))) {
 		return zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
 	}
 	else {
 		return cmd.format()
 	}	
 }
-
-private canSecureCmd(cmd) {
-	// This code was extracted from example by @ClassicGOD
-	return zwaveInfo?.zw?.contains("s") && zwaveInfo?.sec?.contains(Integer.toHexString(cmd.commandClassId)?.toUpperCase())
-}
-
-private getVersionSafeCmdClass(cmdClass) {
-	def version = commandClassVersions[safeToInt(cmdClass)]
-	if (version) {
-		return zwave.commandClass(cmdClass, version)
-	}
-	else {
-		return zwave.commandClass(cmdClass)
-	}
-}
-
-
-
-
 
 private getCheckinIntervalSettingMinutes() {
 	return convertOptionSettingToInt(checkinIntervalOptions, checkinIntervalSetting)
